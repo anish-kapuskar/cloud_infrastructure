@@ -1,19 +1,16 @@
 
 provider "aws" {
-    region="us-east-1"  
+    region="${var.region}"  
 }
-
 
 module "vpc_module" {
-  source ="/home/anishkapuskar/cloud/terraform/modules"
+  source ="/home/anishkapuskar/cloudapps/infrastructure/modules"
+ vpc_cidr="${var.vpc_cidr}"
+subnet1_cidr="${var.subnet1_cidr}"
+s1az="${var.s1az}"
+subnet2_cidr="${var.subnet2_cidr}"
+s2az="${var.s2az}"
+ 
+} 
 
-  vpc_cidr ="10.0.0.0/16"
-  subnet1_cidr="10.0.1.0/24"
 
-  
-  subnet2_cidr="10.0.2.0/24"
-  
-  subnet3_cidr="10.0.3.0/24"
-  
-
-}
