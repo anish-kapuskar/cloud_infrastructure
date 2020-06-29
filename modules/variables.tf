@@ -19,3 +19,9 @@ variable  "s2az" {
     
 }
 
+variable  "custom_ami" {
+    type = string
+    
+}
+ 
+

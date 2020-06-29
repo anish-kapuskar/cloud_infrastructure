@@ -23,3 +23,7 @@ variable "region" {
   type = string
 }
 
+variable "custom_ami" {
+  type = string
+}
+
