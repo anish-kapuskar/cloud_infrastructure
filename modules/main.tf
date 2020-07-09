@@ -277,11 +277,11 @@ resource "aws_instance" "a5_ec2_instance" {
 
    user_data = <<-EOF
           #!/bin/bash
-          echo "export db_hostname=${aws_db_instance.csye6225.address}">>/home/ubuntu/.bashrc
-          echo "export db_username=csye6225su2020">>/home/ubuntu/.bashrc
-          echo "export db_password=anishk78995">>/home/ubuntu/.bashrc
-          echo "export s3_bucket_name=webapp.anish.kapuskar">>/home/ubuntu/.bashrc
-      EOF
+          sudo echo export "DB_HOSTNAME='${aws_db_instance.csye6225.address}'" >> /etc/environment
+          sudo echo export "DB_USERNAME='csye6225su2020'" >> /etc/environment
+          sudo echo export "DB_PASSWORD='anishk78995'" >> /etc/environment
+          sudo echo export "S3_BUCKET_NAME='webapp.anish.kapuskar'" >> /etc/environment
+     EOF
 
   root_block_device {
   volume_type = "gp2"
@@ -294,7 +294,7 @@ resource "aws_instance" "a5_ec2_instance" {
  volume_size = 20
  delete_on_termination = true
  }
-
+	
   tags = {
     Name = "a5_ec2_instance"
   }
@@ -530,6 +530,10 @@ resource "aws_iam_role_policy_attachment" "CodeDeployEC2ServiceRole_attach" {
   policy_arn = "${aws_iam_policy.CodeDeploy-EC2-S3.arn}"
 }
 
+resource "aws_iam_role_policy_attachment" "CloudWatchEC2_attach" {
+  role       = "${aws_iam_role.CodeDeployEC2ServiceRole.name}"
+  policy_arn = "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy"
+}
 
 
 
