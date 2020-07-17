@@ -21,14 +21,39 @@ resource "aws_subnet" "subnet1" {
 
 resource "aws_subnet" "subnet2" {
     cidr_block              = "${var.subnet2_cidr}"
-    vpc_id                  ="${aws_vpc.csye6225_a4_vpc.id}"
+    vpc_id                  = "${aws_vpc.csye6225_a4_vpc.id}"
     availability_zone       = "${var.s2az}"
     map_public_ip_on_launch = true
 
 }
+resource "aws_subnet" "subnet3" {
+    cidr_block              = "${var.subnet3_cidr}"
+    vpc_id                  ="${aws_vpc.csye6225_a4_vpc.id}"
+    availability_zone       = "${var.s3az}"
+    map_public_ip_on_launch = true
+}
 
+resource "aws_subnet" "subnet4" {
+    cidr_block              = "${var.subnet4_cidr}"
+    vpc_id                  = "${aws_vpc.csye6225_a4_vpc.id}"
+    availability_zone       = "${var.s4az}"
+    map_public_ip_on_launch = true
 
+}
+resource "aws_subnet" "subnet5" {
+    cidr_block              = "${var.subnet5_cidr}"
+    vpc_id                  ="${aws_vpc.csye6225_a4_vpc.id}"
+    availability_zone       = "${var.s5az}"
+    map_public_ip_on_launch = true
+}
 
+resource "aws_subnet" "subnet6" {
+    cidr_block              = "${var.subnet6_cidr}"
+    vpc_id                  = "${aws_vpc.csye6225_a4_vpc.id}"
+    availability_zone       = "${var.s6az}"
+    map_public_ip_on_launch = true
+
+}
 
 
 resource "aws_internet_gateway" "csye6225_a4_internet_gateway" {
@@ -61,6 +86,28 @@ resource "aws_route_table_association" "subnet2" {
   subnet_id      = aws_subnet.subnet2.id
   route_table_id = aws_route_table.csye6225_a4_route_table.id
 }
+
+resource "aws_route_table_association" "subnet3" {
+  subnet_id      = aws_subnet.subnet3.id
+  route_table_id = aws_route_table.csye6225_a4_route_table.id
+}
+
+resource "aws_route_table_association" "subnet4" {
+  subnet_id      = aws_subnet.subnet4.id
+  route_table_id = aws_route_table.csye6225_a4_route_table.id
+}
+
+
+resource "aws_route_table_association" "subnet5" {
+  subnet_id      = aws_subnet.subnet5.id
+  route_table_id = aws_route_table.csye6225_a4_route_table.id
+}
+
+resource "aws_route_table_association" "subnet6" {
+  subnet_id      = aws_subnet.subnet6.id
+  route_table_id = aws_route_table.csye6225_a4_route_table.id
+}
+
 
 
 
@@ -124,6 +171,19 @@ resource "aws_security_group" "application" {
     protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
   }
+  ingress {
+    description = "TCP traffic from anywhere in the world"
+    from_port   = 3306
+    to_port     = 3306
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+ egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
 
 
 
@@ -148,6 +208,58 @@ resource "aws_security_group" "database" {
   }
 }
 
+
+resource "aws_security_group" "ec2sg" {
+  name        = "ec2sg"
+
+  vpc_id      = "${aws_vpc.csye6225_a4_vpc.id}"
+
+  ingress { 
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    security_groups = ["${aws_security_group.application.id}"]
+  }
+
+   ingress {
+    description = "TCP traffic from anywhere in the world"
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    security_groups = ["${aws_security_group.application.id}"]
+  }
+
+
+  ingress {
+    description = "TCP traffic from anywhere in the world"
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    security_groups = ["${aws_security_group.application.id}"]
+    
+  }
+
+  ingress {
+    description = "TCP traffic from anywhere in the world"
+    from_port   = 8080
+    to_port     = 8080
+    protocol    = "tcp"
+    security_groups = ["${aws_security_group.application.id}"]
+  }
+
+  ingress {
+    description = "TCP traffic from anywhere in the world"
+    from_port   = 3306
+    to_port     = 3306
+    protocol    = "tcp"
+    security_groups = ["${aws_security_group.application.id}"]
+  }
+
+  tags = {
+    Name = "ec2sg"
+  }
+}
+
 resource "aws_security_group_rule" "database_rule" {
   type              = "ingress"
   from_port         = 3306
@@ -157,6 +269,8 @@ resource "aws_security_group_rule" "database_rule" {
   security_group_id = aws_security_group.database.id
   source_security_group_id = aws_security_group.application.id
 }
+
+
 
 resource "aws_kms_key" "a5_key" {
   description             = "This key is used to encrypt bucket objects"
@@ -228,7 +342,7 @@ resource "aws_s3_bucket" "codedeploy-anishkapuskar-me" {
 
 resource "aws_db_subnet_group" "a5_subnet_group" {
   name       = "a5_subnet_group"
-  subnet_ids = ["${aws_subnet.subnet1.id}", "${aws_subnet.subnet2.id}"]
+  subnet_ids = ["${aws_subnet.subnet1.id}", "${aws_subnet.subnet2.id}", "${aws_subnet.subnet3.id}", "${aws_subnet.subnet4.id}", "${aws_subnet.subnet5.id}", "${aws_subnet.subnet6.id}"]
 
   tags = {
     Name = "My DB subnet group"
@@ -262,43 +376,7 @@ resource "aws_key_pair" "csye6225_a5_key" {
 
 
 
-resource "aws_instance" "a5_ec2_instance" {
-  ami           = "${var.custom_ami}"
-  instance_type = "t2.micro"
-  disable_api_termination = false
-  vpc_security_group_ids = [aws_security_group.application.id]
-  subnet_id = "${aws_subnet.subnet1.id}"
 
-  depends_on = [aws_db_instance.csye6225]
-  iam_instance_profile    = "${aws_iam_instance_profile.ec2_profile.name}"
-
-  key_name                = "${aws_key_pair.csye6225_a5_key.key_name}"
-
-
-   user_data = <<-EOF
-          #!/bin/bash
-          sudo echo export "DB_HOSTNAME='${aws_db_instance.csye6225.address}'" >> /etc/environment
-          sudo echo export "DB_USERNAME='csye6225su2020'" >> /etc/environment
-          sudo echo export "DB_PASSWORD='anishk78995'" >> /etc/environment
-          sudo echo export "S3_BUCKET_NAME='webapp.anish.kapuskar'" >> /etc/environment
-     EOF
-
-  root_block_device {
-  volume_type = "gp2"
-  volume_size = 20
-  }
-
- ebs_block_device {
- device_name = "/dev/sda1"
- volume_type = "gp2"
- volume_size = 20
- delete_on_termination = true
- }
-	
-  tags = {
-    Name = "a5_ec2_instance"
-  }
-}
 
 
 resource "aws_dynamodb_table" "csye6225" {
@@ -570,32 +648,7 @@ resource "aws_codedeploy_app" "csye6225-webapp" {
 
 
 
-resource "aws_codedeploy_deployment_group" "csye6225-webapp-deployment" {
-  app_name              = "${aws_codedeploy_app.csye6225-webapp.name}"
-  deployment_config_name = "CodeDeployDefault.AllAtOnce"
-  deployment_group_name = "csye6225-webapp-deployment"
-  service_role_arn      = "${aws_iam_role.CodeDeployServiceRole.arn}"
 
-  ec2_tag_set {
-    ec2_tag_filter {
-      key   = "Name"
-      type  = "KEY_AND_VALUE"
-      value = "a5_ec2_instance"
-    }
-
-  }
-
-  deployment_style {
-    deployment_type   = "IN_PLACE"
-  }
-
-
-  auto_rollback_configuration {
-    enabled = true
-    events  = ["DEPLOYMENT_FAILURE"]
-  }
-
-}
 
 
 
@@ -617,5 +670,190 @@ resource "aws_iam_user_policy_attachment" "CircleCI-Code-Deploy-user-attach" {
 resource "aws_iam_user_policy_attachment" "circleci-ec2-ami-user-attach" {
   user       = "circleci"
   policy_arn = "${aws_iam_policy.circleci-ec2-ami.arn}"
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+resource "aws_autoscaling_group" "csye6225_asg" {
+  name                      = "csye6225-asg"
+  max_size                  = 5
+  min_size                  = 2
+  default_cooldown          = 60
+  target_group_arns         = ["${aws_lb_target_group.csye6225_target_group.arn}"]
+  health_check_grace_period = 300
+  health_check_type         = "EC2"
+  desired_capacity          = 2
+  launch_configuration      = "${aws_launch_configuration.asg_launch_config.name}"
+  vpc_zone_identifier       = ["${aws_subnet.subnet1.id}", "${aws_subnet.subnet2.id}", "${aws_subnet.subnet3.id}", "${aws_subnet.subnet4.id}", "${aws_subnet.subnet5.id}", "${aws_subnet.subnet6.id}"]
+
+}
+
+
+
+
+resource "aws_autoscaling_policy" "WebServerScaleUpPolicy" {
+  name                   = "WebServerScaleUpPolicy"
+  scaling_adjustment     = 1
+  adjustment_type        = "ChangeInCapacity"
+  cooldown               = 60
+  autoscaling_group_name = "${aws_autoscaling_group.csye6225_asg.name}"
+}
+
+resource "aws_autoscaling_policy" "WebServerScaleDownPolicy" {
+  name                   = "WebServerScaleDownPolicy"
+  scaling_adjustment     = -1
+  adjustment_type        = "ChangeInCapacity"
+  cooldown               = 60
+  autoscaling_group_name = "${aws_autoscaling_group.csye6225_asg.name}"
+}
+
+resource "aws_cloudwatch_metric_alarm" "CPUAlarmHigh" {
+  alarm_name          = "CPUAlarmHigh"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = "2"
+  metric_name         = "CPUUtilization"
+  namespace           = "AWS/EC2"
+  period              = "60"
+  statistic           = "Average"
+  threshold           = "5"
+
+  dimensions = {
+    AutoScalingGroupName = "${aws_autoscaling_group.csye6225_asg.name}"
+  }
+
+  alarm_description = "Scale-up if CPU > 5% for 10 minutes"
+  alarm_actions     = ["${aws_autoscaling_policy.WebServerScaleUpPolicy.arn}"]
+}
+
+resource "aws_cloudwatch_metric_alarm" "CPUAlarmLow" {
+  alarm_name          = "CPUAlarmLow"
+  comparison_operator = "LessThanThreshold"
+  evaluation_periods  = "2"
+  metric_name         = "CPUUtilization"
+  namespace           = "AWS/EC2"
+  period              = "60"
+  statistic           = "Average"
+  threshold           = "3"
+
+  dimensions = {
+    AutoScalingGroupName = "${aws_autoscaling_group.csye6225_asg.name}"
+  }
+
+  alarm_description = "Scale-down if CPU < 3% for 10 minutes"
+  alarm_actions     = ["${aws_autoscaling_policy.WebServerScaleDownPolicy.arn}"]
+}
+
+
+
+
+
+
+
+
+resource "aws_launch_configuration" "asg_launch_config" {
+  name                        = "asg_launch_config"
+  image_id                    = "${var.custom_ami}"
+  instance_type               = "t2.micro"
+  key_name                    = "${aws_key_pair.csye6225_a5_key.key_name}"
+  associate_public_ip_address = true
+  iam_instance_profile        = "${aws_iam_instance_profile.ec2_profile.name}"
+  security_groups             = ["${aws_security_group.ec2sg.id}"]
+
+  user_data = <<-EOF
+          #!/bin/bash
+          sudo echo export "DB_HOSTNAME='${aws_db_instance.csye6225.address}'" >> /etc/environment
+          sudo echo export "DB_USERNAME='csye6225su2020'" >> /etc/environment
+          sudo echo export "DB_PASSWORD='anishk78995'" >> /etc/environment
+          sudo echo export "S3_BUCKET_NAME='webapp.anish.kapuskar'" >> /etc/environment
+     EOF
+
+}
+
+
+
+
+resource "aws_lb" "csye6225_lb" {
+  name               = "csye6225-lb"
+  internal           = false
+  load_balancer_type = "application"
+  ip_address_type    = "ipv4"
+  security_groups    = ["${aws_security_group.application.id}"]
+  subnets            = ["${aws_subnet.subnet1.id}", "${aws_subnet.subnet2.id}", "${aws_subnet.subnet3.id}", "${aws_subnet.subnet4.id}", "${aws_subnet.subnet5.id}", "${aws_subnet.subnet6.id}"]
+
+
+
+  tags = {
+    Environment = "production"
+  }
+}
+
+
+
+resource "aws_lb_listener" "httplb" {
+  load_balancer_arn = "${aws_lb.csye6225_lb.arn}"
+  port              = "80"
+  protocol          = "HTTP"
+
+  default_action {
+    type             = "forward"
+    target_group_arn = "${aws_lb_target_group.csye6225_target_group.arn}"
+  }
+}
+
+resource "aws_lb_target_group" "csye6225_target_group" {
+  name     = "csye6225-target-group"
+  port     = 8080
+  protocol = "HTTP"
+  vpc_id   = "${aws_vpc.csye6225_a4_vpc	.id}"
+}
+
+
+
+resource "aws_route53_record" "route53_lb" {
+  zone_id = "Z10267622EHWHOUW3SOB5"
+  name    = "prod.anishkapuskar.me"
+  type    = "A"
+
+  alias {
+    name                   = "${aws_lb.csye6225_lb.dns_name}"
+    zone_id                = "${aws_lb.csye6225_lb.zone_id}"
+    evaluate_target_health = false
+  }
+}
+
+
+
+
+resource "aws_codedeploy_deployment_group" "csye6225-webapp-deployment" {
+  app_name              = "${aws_codedeploy_app.csye6225-webapp.name}"
+  deployment_config_name = "CodeDeployDefault.AllAtOnce"
+  deployment_group_name = "csye6225-webapp-deployment"
+  service_role_arn      = "${aws_iam_role.CodeDeployServiceRole.arn}"
+  autoscaling_groups    = ["${aws_autoscaling_group.csye6225_asg.name}"]
+
+
+  deployment_style {
+    deployment_type   = "IN_PLACE"
+  }
+
+
+  auto_rollback_configuration {
+    enabled = true
+    events  = ["DEPLOYMENT_FAILURE"]
+  }
+
 }
 
