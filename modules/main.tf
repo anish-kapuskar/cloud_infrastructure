@@ -218,16 +218,16 @@ resource "aws_security_group" "ec2sg" {
     from_port   = 80
     to_port     = 80
     protocol    = "tcp"
-    security_groups = ["${aws_security_group.application.id}"]
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+  
+   egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
   }
 
-   ingress {
-    description = "TCP traffic from anywhere in the world"
-    from_port   = 443
-    to_port     = 443
-    protocol    = "tcp"
-    security_groups = ["${aws_security_group.application.id}"]
-  }
 
 
   ingress {
@@ -235,8 +235,15 @@ resource "aws_security_group" "ec2sg" {
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
-    security_groups = ["${aws_security_group.application.id}"]
+    cidr_blocks = ["0.0.0.0/0"]
     
+  }
+
+   egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
   }
 
   ingress {
@@ -246,14 +253,30 @@ resource "aws_security_group" "ec2sg" {
     protocol    = "tcp"
     security_groups = ["${aws_security_group.application.id}"]
   }
+  
 
+   egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+   
   ingress {
     description = "TCP traffic from anywhere in the world"
     from_port   = 3306
     to_port     = 3306
     protocol    = "tcp"
-    security_groups = ["${aws_security_group.application.id}"]
+    cidr_blocks = ["0.0.0.0/0"]
   }
+
+   egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+  
 
   tags = {
     Name = "ec2sg"
@@ -268,6 +291,16 @@ resource "aws_security_group_rule" "database_rule" {
 
   security_group_id = aws_security_group.database.id
   source_security_group_id = aws_security_group.application.id
+}
+
+resource "aws_security_group_rule" "database_rule_asg" {
+  type              = "ingress"
+  from_port         = 3306
+  to_port           = 3306
+  protocol          = "tcp"
+
+  security_group_id = aws_security_group.database.id
+  source_security_group_id = aws_security_group.ec2sg.id
 }
 
 
@@ -379,15 +412,30 @@ resource "aws_key_pair" "csye6225_a5_key" {
 
 
 
+
+
+
+
+
+
+
+
+
+
 resource "aws_dynamodb_table" "csye6225" {
   name           = "csye6225"
-  hash_key       = "id"
+  hash_key       = "username"
   read_capacity  = 20
   write_capacity = 20
 
  attribute {
-    name = "id"
+    name = "username"
     type = "S"
+  }
+
+ ttl {
+    attribute_name = "username"
+    enabled        = true
   }
 
   tags = {
@@ -462,7 +510,9 @@ resource "aws_iam_policy" "CircleCI-Upload-To-S3" {
             ],
             "Resource": [
                         "arn:aws:s3:::${aws_s3_bucket.codedeploy-anishkapuskar-me.bucket}",
-              "arn:aws:s3:::${aws_s3_bucket.codedeploy-anishkapuskar-me.bucket}/*"
+              "arn:aws:s3:::${aws_s3_bucket.codedeploy-anishkapuskar-me.bucket}/*",
+              "arn:aws:s3:::lambdacsye6225",
+              "arn:aws:s3:::lambdacsye6225/*"
             ]
         }
     ]
@@ -567,6 +617,68 @@ EOF
 }
 
 
+
+
+resource "aws_iam_policy" "CircleCI-lambda" {
+  name        = "CircleCI-lambda"
+  description = "CircleCI update lambda"
+
+  policy = <<EOF
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "ActionsWhichSupportResourceLevelPermissions",
+            "Effect": "Allow",
+            "Action": [
+                "lambda:AddPermission",
+                "lambda:RemovePermission",
+                "lambda:CreateAlias",
+                "lambda:UpdateAlias",
+                "lambda:DeleteAlias",
+                "lambda:UpdateFunctionCode",
+                "lambda:UpdateFunctionConfiguration",
+                "lambda:PutFunctionConcurrency",
+                "lambda:DeleteFunctionConcurrency",
+                "lambda:PublishVersion"
+            ],
+            "Resource": "arn:aws:lambda:us-east-1:569196275084:function:lambdaapp"
+        },
+        {
+            "Sid": "ActionsWhichSupportCondition",
+            "Effect": "Allow",
+            "Action": [
+                "lambda:CreateEventSourceMapping",
+                "lambda:UpdateEventSourceMapping",
+                "lambda:DeleteEventSourceMapping"
+            ],
+            "Resource": "*",
+            "Condition": {
+                "StringEquals": {
+                    "lambda:FunctionArn": "arn:aws:lambda:us-east-1:569196275084:function:lambdaapp"
+                }
+            }
+        },
+        {
+            "Sid": "ActionsWhichDoNotSupportResourceLevelPermissions",
+            "Effect": "Allow",
+            "Action": [
+                "lambda:UntagResource",
+                "lambda:TagResource"
+            ],
+            "Resource": "*"
+        }
+    ]
+}
+EOF
+}
+
+
+
+
+
+
+
 resource "aws_iam_instance_profile" "ec2_profile" {
   name = "ec2_profile"
   role = "${aws_iam_role.CodeDeployEC2ServiceRole.name}"
@@ -613,7 +725,10 @@ resource "aws_iam_role_policy_attachment" "CloudWatchEC2_attach" {
   policy_arn = "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy"
 }
 
-
+resource "aws_iam_role_policy_attachment" "ec2_SNS_attach" {
+	role = "${aws_iam_role.CodeDeployEC2ServiceRole.name}"
+	policy_arn = "arn:aws:iam::aws:policy/AmazonSNSFullAccess"
+}
 
 
 
@@ -672,6 +787,10 @@ resource "aws_iam_user_policy_attachment" "circleci-ec2-ami-user-attach" {
   policy_arn = "${aws_iam_policy.circleci-ec2-ami.arn}"
 }
 
+resource "aws_iam_user_policy_attachment" "circleci-lambda-attach" {
+  user       = "circleci"
+  policy_arn = "${aws_iam_policy.CircleCI-lambda.arn}"
+}
 
 
 
@@ -695,9 +814,19 @@ resource "aws_autoscaling_group" "csye6225_asg" {
   target_group_arns         = ["${aws_lb_target_group.csye6225_target_group.arn}"]
   health_check_grace_period = 300
   health_check_type         = "EC2"
-  desired_capacity          = 2
+
   launch_configuration      = "${aws_launch_configuration.asg_launch_config.name}"
   vpc_zone_identifier       = ["${aws_subnet.subnet1.id}", "${aws_subnet.subnet2.id}", "${aws_subnet.subnet3.id}", "${aws_subnet.subnet4.id}", "${aws_subnet.subnet5.id}", "${aws_subnet.subnet6.id}"]
+ 
+ tag {
+      key                 = "Name"
+      value               = "asg_ec2_instance"
+      propagate_at_launch = true
+    }
+
+  lifecycle {
+    create_before_destroy = true
+  }
 
 }
 
@@ -726,9 +855,9 @@ resource "aws_cloudwatch_metric_alarm" "CPUAlarmHigh" {
   evaluation_periods  = "2"
   metric_name         = "CPUUtilization"
   namespace           = "AWS/EC2"
-  period              = "60"
+  period              = "180"
   statistic           = "Average"
-  threshold           = "5"
+  threshold           = "90"
 
   dimensions = {
     AutoScalingGroupName = "${aws_autoscaling_group.csye6225_asg.name}"
@@ -744,7 +873,7 @@ resource "aws_cloudwatch_metric_alarm" "CPUAlarmLow" {
   evaluation_periods  = "2"
   metric_name         = "CPUUtilization"
   namespace           = "AWS/EC2"
-  period              = "60"
+  period              = "180"
   statistic           = "Average"
   threshold           = "3"
 
@@ -771,6 +900,7 @@ resource "aws_launch_configuration" "asg_launch_config" {
   associate_public_ip_address = true
   iam_instance_profile        = "${aws_iam_instance_profile.ec2_profile.name}"
   security_groups             = ["${aws_security_group.ec2sg.id}"]
+  depends_on = [aws_db_instance.csye6225] 
 
   user_data = <<-EOF
           #!/bin/bash
@@ -779,6 +909,10 @@ resource "aws_launch_configuration" "asg_launch_config" {
           sudo echo export "DB_PASSWORD='anishk78995'" >> /etc/environment
           sudo echo export "S3_BUCKET_NAME='webapp.anish.kapuskar'" >> /etc/environment
      EOF
+
+    lifecycle {
+    create_before_destroy = true
+  }
 
 }
 
@@ -844,9 +978,13 @@ resource "aws_codedeploy_deployment_group" "csye6225-webapp-deployment" {
   service_role_arn      = "${aws_iam_role.CodeDeployServiceRole.arn}"
   autoscaling_groups    = ["${aws_autoscaling_group.csye6225_asg.name}"]
 
+  ec2_tag_set {
+    ec2_tag_filter {
+      key   = "Name"
+      type  = "KEY_AND_VALUE"
+      value = "asg_ec2_instance"
+    }
 
-  deployment_style {
-    deployment_type   = "IN_PLACE"
   }
 
 
@@ -855,5 +993,104 @@ resource "aws_codedeploy_deployment_group" "csye6225-webapp-deployment" {
     events  = ["DEPLOYMENT_FAILURE"]
   }
 
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+resource "aws_sns_topic" "csye6225_sns_topic" {
+  name = "password_reset"
+}
+
+
+
+
+
+resource "aws_iam_role" "lambda_iam_role" {
+  name = "lambda_iam_role"
+
+  assume_role_policy = <<EOF
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Action": "sts:AssumeRole",
+      "Principal": {
+        "Service": "lambda.amazonaws.com"
+      },
+      "Effect": "Allow",
+      "Sid": ""
+    }
+  ]
+}
+EOF
+}
+
+resource "aws_iam_role_policy_attachment" "cloudwatch_lambda_attach" {
+  role       = "${aws_iam_role.lambda_iam_role.name}"
+  policy_arn = "arn:aws:iam::aws:policy/CloudWatchFullAccess"
+}
+
+resource "aws_iam_role_policy_attachment" "dynamodb_lambda_attach" {
+  role       = "${aws_iam_role.lambda_iam_role.name}"
+  policy_arn = "arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess"
+}
+
+resource "aws_iam_role_policy_attachment" "ses_lambda_attach" {
+  role       = "${aws_iam_role.lambda_iam_role.name}"
+  policy_arn = "arn:aws:iam::aws:policy/AmazonSESFullAccess"
+}
+
+resource "aws_iam_role_policy_attachment" "s3_lambda_attach" {
+  role       = "${aws_iam_role.lambda_iam_role.name}"
+  policy_arn = "arn:aws:iam::aws:policy/AmazonS3FullAccess"
+}
+
+
+
+resource "aws_lambda_function" "csye6225_lambda_function" {
+  filename      = "lambdaapp-1.0-SNAPSHOT.jar"
+  function_name = "lambdaapp"
+  role          = "${aws_iam_role.lambda_iam_role.arn}"
+  handler       = "lambdaapp::handleRequest"
+
+  source_code_hash = "${filebase64sha256("lambdaapp-1.0-SNAPSHOT.jar")}"
+
+  runtime = "java8"
+  
+
+  environment {
+    variables = {
+      DynamoDBEndPoint = "${aws_dynamodb_table.csye6225.arn}",
+      TTL_MINS = "15",
+      domain = "prod.anishkapuskar.me"   
+    }
+  }
+}
+
+
+
+resource "aws_lambda_permission" "csye6225_lambda_sns" {
+  statement_id  = "AllowExecutionFromSNS"
+  action        = "lambda:InvokeFunction"
+  function_name = "${aws_lambda_function.csye6225_lambda_function.function_name}"
+  principal     = "sns.amazonaws.com"
+  source_arn    = "${aws_sns_topic.csye6225_sns_topic.arn}"
+}
+
+resource "aws_sns_topic_subscription" "csye6225_sns_subscription" {
+  topic_arn = "${aws_sns_topic.csye6225_sns_topic.arn}"
+  protocol  = "lambda"
+  endpoint  = "${aws_lambda_function.csye6225_lambda_function.arn}"
 }
 
