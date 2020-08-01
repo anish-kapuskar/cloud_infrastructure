@@ -111,8 +111,8 @@ resource "aws_route_table_association" "subnet6" {
 
 
 
-resource "aws_security_group" "application" {
-  name        = "application"
+resource "aws_security_group" "lb_security" {
+  name        = "lb_security"
   description = "Allow TCP inbound traffic"
   vpc_id      = "${aws_vpc.csye6225_a4_vpc.id}"
 
@@ -132,20 +132,6 @@ resource "aws_security_group" "application" {
 
   ingress {
     description = "TCP traffic from anywhere in the world"
-    from_port   = 22
-    to_port     = 22
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
- egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  ingress {
-    description = "TCP traffic from anywhere in the world"
     from_port   = 80
     to_port     = 80
     protocol    = "tcp"
@@ -188,9 +174,10 @@ resource "aws_security_group" "application" {
 
 
   tags = {
-    Name = "application"
+    Name = "lb_security"
   }
 }
+
 
 resource "aws_security_group" "database" {
   name        = "database"
@@ -209,36 +196,32 @@ resource "aws_security_group" "database" {
 }
 
 
-resource "aws_security_group" "ec2sg" {
-  name        = "ec2sg"
+resource "aws_security_group" "application" {
+  name        = "application"
 
   vpc_id      = "${aws_vpc.csye6225_a4_vpc.id}"
 
-  ingress { 
-    from_port   = 80
-    to_port     = 80
+#  ingress { 
+#    from_port   = 80
+#    to_port     = 80
+#    protocol    = "tcp"
+#    security_groups = ["${aws_security_group.lb_security.id}"]
+#  }
+  
+#   egress {
+#    from_port   = 0
+#    to_port     = 0
+#    protocol    = "-1"
+#    cidr_blocks = ["0.0.0.0/0"]
+#  }
+
+    ingress { 
+    from_port   = 443
+    to_port     = 443
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+    security_groups = ["${aws_security_group.lb_security.id}"]
   }
   
-   egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-
-
-  ingress {
-    description = "TCP traffic from anywhere in the world"
-    from_port   = 22
-    to_port     = 22
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-    
-  }
-
    egress {
     from_port   = 0
     to_port     = 0
@@ -251,7 +234,7 @@ resource "aws_security_group" "ec2sg" {
     from_port   = 8080
     to_port     = 8080
     protocol    = "tcp"
-    security_groups = ["${aws_security_group.application.id}"]
+    security_groups = ["${aws_security_group.lb_security.id}"]
   }
   
 
@@ -267,7 +250,7 @@ resource "aws_security_group" "ec2sg" {
     from_port   = 3306
     to_port     = 3306
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+    security_groups = ["${aws_security_group.lb_security.id}"]
   }
 
    egress {
@@ -279,7 +262,7 @@ resource "aws_security_group" "ec2sg" {
   
 
   tags = {
-    Name = "ec2sg"
+    Name = "application"
   }
 }
 
@@ -290,7 +273,7 @@ resource "aws_security_group_rule" "database_rule" {
   protocol          = "tcp"
 
   security_group_id = aws_security_group.database.id
-  source_security_group_id = aws_security_group.application.id
+  source_security_group_id = aws_security_group.lb_security.id
 }
 
 resource "aws_security_group_rule" "database_rule_asg" {
@@ -300,7 +283,7 @@ resource "aws_security_group_rule" "database_rule_asg" {
   protocol          = "tcp"
 
   security_group_id = aws_security_group.database.id
-  source_security_group_id = aws_security_group.ec2sg.id
+  source_security_group_id = aws_security_group.application.id
 }
 
 
@@ -330,18 +313,9 @@ resource "aws_s3_bucket" "webapp-anish-kapuskar" {
 
   }
 
-server_side_encryption_configuration {
-    rule {
-      apply_server_side_encryption_by_default {
-        kms_master_key_id = "${aws_kms_key.a5_key.arn}"
-        sse_algorithm     = "aws:kms"
-      }
-    }
-  }
-
   tags = {
     Name        = "webapp.anish.kapuskar"
-    Environment = "dev"
+    Environment = "prod"
   }
 }
 
@@ -369,7 +343,7 @@ resource "aws_s3_bucket" "codedeploy-anishkapuskar-me" {
 
   tags = {
     Name        = "codedeploy.anishkapuskar.me"
-    Environment = "dev"
+    Environment = "prod"
   }
 }
 
@@ -387,19 +361,36 @@ resource "aws_db_instance" "csye6225" {
   allocated_storage    = 20
   storage_type         = "gp2"
   engine               = "mysql"
-  engine_version       = "5.7"
+  engine_version       = "8.0"
   identifier           = "csye6225-su2020"
   instance_class       = "db.t3.micro"
   name                 = "csye6225"
   username             = "csye6225su2020"
   password             = "anishk78995"
-  parameter_group_name = "default.mysql5.7"
+  parameter_group_name = "mysql8paramgroup"
   multi_az             = false
   publicly_accessible  = false
   skip_final_snapshot  = true 
   vpc_security_group_ids = [aws_security_group.database.id]
-  db_subnet_group_name = "${aws_db_subnet_group.a5_subnet_group.name}"	
+  db_subnet_group_name = "${aws_db_subnet_group.a5_subnet_group.name}"
+  storage_encrypted    = true
 }
+
+
+resource "aws_db_parameter_group" "mysql8paramgroup" {
+  name   = "mysql8paramgroup"
+  family = "mysql8.0"
+
+  parameter {
+    name  = "performance_schema"
+    value = "1"
+    apply_method = "pending-reboot"
+  }
+}
+
+
+
+
 
 
 resource "aws_key_pair" "csye6225_a5_key" {
@@ -730,7 +721,10 @@ resource "aws_iam_role_policy_attachment" "ec2_SNS_attach" {
 	policy_arn = "arn:aws:iam::aws:policy/AmazonSNSFullAccess"
 }
 
-
+resource "aws_iam_role_policy_attachment" "dynamodb_ec2_attach" {
+  role       = "${aws_iam_role.CodeDeployEC2ServiceRole.name}"
+  policy_arn = "arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess"
+}
 
 
 
@@ -899,7 +893,7 @@ resource "aws_launch_configuration" "asg_launch_config" {
   key_name                    = "${aws_key_pair.csye6225_a5_key.key_name}"
   associate_public_ip_address = true
   iam_instance_profile        = "${aws_iam_instance_profile.ec2_profile.name}"
-  security_groups             = ["${aws_security_group.ec2sg.id}"]
+  security_groups             = ["${aws_security_group.application.id}"]
   depends_on = [aws_db_instance.csye6225] 
 
   user_data = <<-EOF
@@ -924,7 +918,7 @@ resource "aws_lb" "csye6225_lb" {
   internal           = false
   load_balancer_type = "application"
   ip_address_type    = "ipv4"
-  security_groups    = ["${aws_security_group.application.id}"]
+  security_groups    = ["${aws_security_group.lb_security.id}"]
   subnets            = ["${aws_subnet.subnet1.id}", "${aws_subnet.subnet2.id}", "${aws_subnet.subnet3.id}", "${aws_subnet.subnet4.id}", "${aws_subnet.subnet5.id}", "${aws_subnet.subnet6.id}"]
 
 
@@ -936,16 +930,30 @@ resource "aws_lb" "csye6225_lb" {
 
 
 
-resource "aws_lb_listener" "httplb" {
+# resource "aws_lb_listener" "httplb" {
+#   load_balancer_arn = "${aws_lb.csye6225_lb.arn}"
+#   port              = "80"
+#   protocol          = "HTTP"
+
+#   default_action {
+#     type             = "forward"
+#     target_group_arn = "${aws_lb_target_group.csye6225_target_group.arn}"
+#   }
+# }
+
+resource "aws_lb_listener" "httpslb" {
   load_balancer_arn = "${aws_lb.csye6225_lb.arn}"
-  port              = "80"
-  protocol          = "HTTP"
+  port              = "443"
+  protocol          = "HTTPS"
+  ssl_policy        = "ELBSecurityPolicy-2016-08"
+  certificate_arn   = "arn:aws:acm:us-east-1:569196275084:certificate/0f6112f9-d134-4b06-b1e4-24ada9c79cdc"
 
   default_action {
     type             = "forward"
     target_group_arn = "${aws_lb_target_group.csye6225_target_group.arn}"
   }
 }
+
 
 resource "aws_lb_target_group" "csye6225_target_group" {
   name     = "csye6225-target-group"
@@ -1000,14 +1008,6 @@ resource "aws_codedeploy_deployment_group" "csye6225-webapp-deployment" {
 
 
 
-
-
-
-
-
-
-
-
 resource "aws_sns_topic" "csye6225_sns_topic" {
   name = "password_reset"
 }
@@ -1056,6 +1056,11 @@ resource "aws_iam_role_policy_attachment" "s3_lambda_attach" {
   policy_arn = "arn:aws:iam::aws:policy/AmazonS3FullAccess"
 }
 
+resource "aws_iam_role_policy_attachment" "lambda_SNS_attach" {
+	role = "${aws_iam_role.lambda_iam_role.name}"
+	policy_arn = "arn:aws:iam::aws:policy/AmazonSNSFullAccess"
+}
+
 
 
 resource "aws_lambda_function" "csye6225_lambda_function" {
@@ -1067,11 +1072,15 @@ resource "aws_lambda_function" "csye6225_lambda_function" {
   source_code_hash = "${filebase64sha256("lambdaapp-1.0-SNAPSHOT.jar")}"
 
   runtime = "java8"
+
+  memory_size = 256
+
+  timeout = 300
   
 
   environment {
     variables = {
-      DynamoDBEndPoint = "${aws_dynamodb_table.csye6225.arn}",
+      DynamoDBEndPoint = "dynamodb.us-east-1.amazonaws.com",
       TTL_MINS = "15",
       domain = "prod.anishkapuskar.me"   
     }
