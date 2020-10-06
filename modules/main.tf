@@ -365,8 +365,8 @@ resource "aws_db_instance" "csye6225" {
   identifier           = "csye6225-su2020"
   instance_class       = "db.t3.micro"
   name                 = "csye6225"
-  username             = "csye6225su2020"
-  password             = "anishk78995"
+  username             = ""
+  password             = ""
   parameter_group_name = "mysql8paramgroup"
   multi_az             = false
   publicly_accessible  = false
@@ -395,7 +395,7 @@ resource "aws_db_parameter_group" "mysql8paramgroup" {
 
 resource "aws_key_pair" "csye6225_a5_key" {
   key_name   = "csye6225_a5_key"
-  public_key = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCeYzkIrUTqb0e4VpD20LfmCrfrDKDgXlfLvNRNCpdvmk58AH8lcNRysms6ZY4fuJP/fJKOb+JH3ZCRZ0SisLzgCuLU7u++H6kCjF24xyvcZ/b6LPip6/85z8+RPGW4z5xgVoFZ7VEqNa1P89XpYbawpkWIX5g+dh6rDGKYb9eM/s9bGXXILngJbVkV7xmdlsc1qh74DDlFmYLDQYBDXtl1WvPM6zDgSgV8eP+KIXYEo0tKewA0PlsP5nyvNIIx/wtuUdvxoGdZg/mrpto0vsCS8j5eKg6M9tS9WaveM05GXfKiAfBFvXZJKRHhS0baEKSZjO5sq3lueECfjTqEjHIr anishkapuskar@anish-kapuskar"
+  public_key = ""
 }
 
 
@@ -899,8 +899,8 @@ resource "aws_launch_configuration" "asg_launch_config" {
   user_data = <<-EOF
           #!/bin/bash
           sudo echo export "DB_HOSTNAME='${aws_db_instance.csye6225.address}'" >> /etc/environment
-          sudo echo export "DB_USERNAME='csye6225su2020'" >> /etc/environment
-          sudo echo export "DB_PASSWORD='anishk78995'" >> /etc/environment
+          sudo echo export "DB_USERNAME=''" >> /etc/environment
+          sudo echo export "DB_PASSWORD=''" >> /etc/environment
           sudo echo export "S3_BUCKET_NAME='webapp.anish.kapuskar'" >> /etc/environment
      EOF
 
@@ -965,7 +965,7 @@ resource "aws_lb_target_group" "csye6225_target_group" {
 
 
 resource "aws_route53_record" "route53_lb" {
-  zone_id = "Z10267622EHWHOUW3SOB5"
+  zone_id = ""
   name    = "prod.anishkapuskar.me"
   type    = "A"
 
